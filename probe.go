@@ -511,12 +511,12 @@ func (p *Probe) resolveLink() (netlink.Link, error) {
 	}
 
 	if p.IfIndex > 0 {
-		p.link, err = ntl.sock.LinkByIndex(p.IfIndex)
+		p.link, err = ntl.Sock.LinkByIndex(p.IfIndex)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't resolve interface with IfIndex %d in namespace %d: %w", p.IfIndex, p.IfIndexNetnsID, err)
 		}
 	} else if len(p.IfName) > 0 {
-		p.link, err = ntl.sock.LinkByName(p.IfName)
+		p.link, err = ntl.Sock.LinkByName(p.IfName)
 		if err != nil {
 			return nil, fmt.Errorf("couldn't resolve interface with IfName %s in namespace %d: %w", p.IfName, p.IfIndexNetnsID, err)
 		}
@@ -566,8 +566,7 @@ func (p *Probe) attach() error {
 		return ErrProbeNotInitialized
 	}
 
-	// TODO: replace with the value of the like at {HOST_PROC}/self
-	p.attachPID = os.Getpid()
+	p.attachPID = Getpid()
 
 	// Per program type start
 	var err error
@@ -988,7 +987,7 @@ func (p *Probe) attachTCCLS() error {
 	}
 
 	// Add the Qdisc
-	err = ntl.sock.QdiscAdd(p.tcClsActQdisc)
+	err = ntl.Sock.QdiscAdd(p.tcClsActQdisc)
 	if err != nil {
 		if errors.Is(err, fs.ErrExist) {
 			// cleanup previous TC filters if necessary
@@ -1020,12 +1019,12 @@ func (p *Probe) attachTCCLS() error {
 	}
 
 	// Add qdisc filter
-	if err = ntl.sock.FilterAdd(&p.tcFilter); err != nil {
+	if err = ntl.Sock.FilterAdd(&p.tcFilter); err != nil {
 		return fmt.Errorf("couldn't add a %v filter to interface %s[%d]: %v", p.NetworkDirection, p.IfName, p.IfIndex, err)
 	}
 
 	// retrieve filter handle
-	resp, err := ntl.sock.FilterList(p.link, p.tcFilter.Parent)
+	resp, err := ntl.Sock.FilterList(p.link, p.tcFilter.Parent)
 	if err != nil {
 		return fmt.Errorf("couldn't list filters of interface %s[%d]: %v", p.IfName, p.IfIndex, err)
 	}
@@ -1073,7 +1072,7 @@ func (p *Probe) IsTCFilterActive() bool {
 		return false
 	}
 
-	resp, err := ntl.sock.FilterList(p.link, p.tcFilter.Parent)
+	resp, err := ntl.Sock.FilterList(p.link, p.tcFilter.Parent)
 	if err != nil {
 		return false
 	}
@@ -1107,7 +1106,7 @@ func (p *Probe) detachTCCLS() error {
 	}
 
 	// delete the current filter
-	if err = ntl.sock.FilterDel(&p.tcFilter); err != nil {
+	if err = ntl.Sock.FilterDel(&p.tcFilter); err != nil {
 		// the device or the filter might already be gone, ignore the error if that's the case
 		if !errors.Is(err, syscall.ENODEV) && !errors.Is(err, syscall.ENOENT) {
 			return fmt.Errorf("couldn't remove TC classifier %v: %w", p.ProbeIdentificationPair, err)
@@ -1123,21 +1122,21 @@ func (p *Probe) detachTCCLS() error {
 	delete(ntl.TCFilterCount, p.IfIndex)
 
 	// check if someone else is using the clsact qdisc on ingress
-	resp, err := ntl.sock.FilterList(p.link, netlink.HANDLE_MIN_INGRESS)
+	resp, err := ntl.Sock.FilterList(p.link, netlink.HANDLE_MIN_INGRESS)
 	if err != nil || err == nil && len(resp) > 0 {
 		// someone is still using it
 		return nil
 	}
 
 	// check on egress
-	resp, err = ntl.sock.FilterList(p.link, netlink.HANDLE_MIN_EGRESS)
+	resp, err = ntl.Sock.FilterList(p.link, netlink.HANDLE_MIN_EGRESS)
 	if err != nil || err == nil && len(resp) > 0 {
 		// someone is still using it
 		return nil
 	}
 
 	// delete qdisc
-	if err = ntl.sock.QdiscDel(p.tcClsActQdisc); err != nil {
+	if err = ntl.Sock.QdiscDel(p.tcClsActQdisc); err != nil {
 		// the device might already be gone, ignore the error if that's the case
 		if !errors.Is(err, syscall.ENODEV) {
 			return fmt.Errorf("couldn't remove clsact qdisc: %w", err)
@@ -1158,7 +1157,7 @@ func (p *Probe) cleanupTCFilters(ntl *NetlinkSocket) error {
 		return fmt.Errorf("filter name pattern generation failed: %w", err)
 	}
 
-	resp, err := ntl.sock.FilterList(p.link, uint32(p.NetworkDirection))
+	resp, err := ntl.Sock.FilterList(p.link, uint32(p.NetworkDirection))
 	if err != nil {
 		return err
 	}
@@ -1196,7 +1195,7 @@ func (p *Probe) cleanupTCFilters(ntl *NetlinkSocket) error {
 		}
 
 		// remove this filter
-		deleteErr = ConcatErrors(deleteErr, ntl.sock.FilterDel(elem))
+		deleteErr = ConcatErrors(deleteErr, ntl.Sock.FilterDel(elem))
 	}
 	return deleteErr
 }

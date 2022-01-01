@@ -229,7 +229,7 @@ type Options struct {
 // NetlinkSocket - (TC classifier programs and XDP) Netlink socket cache entry holding the netlink socket and the
 // TC filter count
 type NetlinkSocket struct {
-	sock          *netlink.Handle
+	Sock          *netlink.Handle
 	TCFilterCount map[int]int
 }
 
@@ -248,7 +248,7 @@ func NewNetlinkSocket(nsHandle uint64, nsID uint32) (*NetlinkSocket, error) {
 	}
 
 	// Open a netlink socket for the requested namespace
-	cacheEntry.sock, err = netlink.NewHandleAt(netnsHandle, unix.NETLINK_ROUTE)
+	cacheEntry.Sock, err = netlink.NewHandleAt(netnsHandle, unix.NETLINK_ROUTE)
 	if err != nil {
 		return nil, fmt.Errorf("couldn't open a netlink socket in namespace %v: %w", nsID, err)
 	}
@@ -1653,7 +1653,7 @@ func (m *Manager) CleanupNetworkNamespace(nsID uint32) error {
 		delete(m.netlinkSocketCache, nsID)
 
 		// close the netlink socket
-		s.sock.Delete()
+		s.Sock.Delete()
 	}
 	return err
 }
@@ -1664,7 +1664,7 @@ func (m *Manager) cleanupNetlinkSockets() {
 	for key, s := range m.netlinkSocketCache {
 		delete(m.netlinkSocketCache, key)
 		// close the netlink socket
-		s.sock.Delete()
+		s.Sock.Delete()
 	}
 }
 
@@ -1715,7 +1715,7 @@ func (m *Manager) cleanupTracefs() error {
 
 	// clean up kprobe_events
 	var cleanUpErrors *multierror.Error
-	pidMask := map[int]procMask{os.Getpid(): Running}
+	pidMask := map[int]procMask{Getpid(): Running}
 	cleanUpErrors = multierror.Append(cleanUpErrors, cleanupKprobeEvents(pattern, pidMask))
 	cleanUpErrors = multierror.Append(cleanUpErrors, cleanupUprobeEvents(pattern, pidMask))
 	if cleanUpErrors.Len() == 0 {
